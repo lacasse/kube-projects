@@ -1,0 +1,75 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seafile-deployment
+  namespace: seafile-namespace
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: seafile-deployment
+    spec:
+      volumes:
+      - name: seafile-data
+        hostPath:
+          path: /mnt/data/seafile/data/
+
+      containers:
+      - name: seafile-pod
+        image: seafileltd/seafile-mc:latest
+        volumeMounts:
+        - name: seafile-data
+          mountPath: /shared
+        
+        env:
+        - name: DB_HOST
+          value: seafile-mysql
+        - name: DB_ROOT_PASSWD
+          value: db_dev
+        - name: TIME_ZONE
+          value: Etc/UTC
+        - name: SEAFILE_ADMIN_EMAIL
+          value: me@example.com
+        - name: SEAFILE_ADMIN_PASSWORD
+          value: asecret
+        - name: SEAFILE_SERVER_LETSENCRYPT
+          value: false
+        #- name: SEAFILE_SERVER_HOSTNAME
+         # value: 
+
+        ports:
+        - name: seafile-web-port
+          containerPort: 80
+
+        readinessProbe:
+          tcpSocket:
+            port: seafile-web-port
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+        livenessProbe:
+          tcpSocket:
+            port: seafile-web-port
+          initialDelaySeconds: 15
+          periodSeconds: 20
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: seafile-service
+  namespace: seafile-namespace
+
+spec:
+  selector:
+    app: seafile-deployment
+    
+  ports:
+  - name: seafile-web-port
+    nodePort: 52252
+    port: 80
+    protocol: TCP
+    targetPort: seafile-web-port
+  type: NodePort
